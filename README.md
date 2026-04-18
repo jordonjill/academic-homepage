@@ -106,7 +106,7 @@ Internal tool surface:
 - D1
   - daily quota, abuse reputation, request log
 - Vectorize
-  - canonical question embeddings and metadata
+  - canonical question index for semantic routing
 
 ## Local Setup
 
@@ -138,6 +138,8 @@ Seed preview writes:
 
 - `apps/edge/.seed/kv-bulk.json`
 - `apps/edge/.seed/vectorize-manifest.json`
+
+The current repository does not generate a ready-to-upsert vector file. `vectorize-manifest.json` is only a manifest of canonical question text and metadata. If Vectorize is empty or unavailable, the Worker falls back to lexical routing.
 
 ## Public Data Policy
 

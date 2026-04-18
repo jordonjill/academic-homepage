@@ -10,7 +10,7 @@ This document covers only deployment and release operations. Project overview, l
 - `1` KV namespace
 - `1` Vectorize index
 
-Required Worker bindings / vars in `apps/edge/wrangler.toml`:
+Required Worker bindings and runtime configuration:
 
 - `DB`
 - `PROFILE_KV`
@@ -24,6 +24,11 @@ Required Worker bindings / vars in `apps/edge/wrangler.toml`:
 - `LLM_MOCK_MODE`
 - `LLM_STREAM_DELAY_MS`
 
+Recommended storage:
+
+- keep `SITE_ORIGIN`, `LLM_MOCK_MODE`, and `LLM_STREAM_DELAY_MS` as non-secret config
+- store `IP_HASH_SALT`, `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` as Cloudflare secrets
+
 ## First-time provisioning
 
 1. Create one D1 database:
@@ -33,7 +38,10 @@ Required Worker bindings / vars in `apps/edge/wrangler.toml`:
 3. Create one Vectorize index named `academic-homepage-questions`.
 4. Copy the returned IDs into [apps/edge/wrangler.toml](/home/jordon/academic-homepage/apps/edge/wrangler.toml:1).
 5. Run `npm run db:apply:remote`.
-6. Upload the generated KV and Vectorize seed artifacts.
+6. Upload the generated KV seed artifact.
+7. Create the Vectorize index even if you do not upsert vectors yet. The current repository only generates `vectorize-manifest.json` metadata, not a ready-to-upsert embedding file.
+8. Lexical fallback routing remains available if the Vectorize index is empty or unavailable.
+9. If real site content stays in untracked `data/*.local.json`, deploy the Pages site with Direct Upload instead of Git integration. A Git-integrated Pages build will only see tracked `*.example.json` files.
 
 ## Runtime limits
 
@@ -64,13 +72,15 @@ Current canonical question count is project-managed, not hard-limited by code. T
 3. Run `npm run build`
 4. Run `npm run seed:preview`
 5. Sync `kv-bulk.json` to KV with `npm run seed:kv:remote`
-6. If canonical questions changed, update Vectorize from `vectorize-manifest.json`
+6. If you have a separate embedding + upsert workflow, update Vectorize from your generated vectors. `vectorize-manifest.json` alone is only a manifest, not a ready-to-upsert vector file.
 7. If schema changed, apply the D1 schema:
    - local: `npm run db:apply:local`
    - remote: `npm run db:apply:remote`
 8. Deploy the Worker
 9. Deploy the static site
-10. Run production smoke tests
+10. Bind the Pages project to the production hostname
+11. Add Worker routes for `/ask*` and `/health*` on the same hostname
+12. Run production smoke tests
 
 ## Production defaults
 
@@ -79,6 +89,7 @@ Current canonical question count is project-managed, not hard-limited by code. T
 - secrets only in Cloudflare
 - public contact output limited to email and GitHub
 - the frontend assumes same-origin API calls in production
+- if real `site.local.json` content is not committed, use Pages Direct Upload for production builds
 - only routed LLM requests count toward the daily quota
 - tracked repo JSON should remain example-only in the public repository
 - runtime knowledge comes from KV, not repo JSON

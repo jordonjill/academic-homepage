@@ -6,9 +6,7 @@ compatibility_date = "2026-04-16"
 binding = "AI"
 
 [vars]
-SITE_ORIGIN = "http://localhost:3000"
-LLM_BASE_URL = "https://api.openai.com/v1"
-LLM_MODEL = "gpt-4.1-mini"
+SITE_ORIGIN = "https://home.jihd.net"
 LLM_MOCK_MODE = "false"
 LLM_STREAM_DELAY_MS = "18"
 
