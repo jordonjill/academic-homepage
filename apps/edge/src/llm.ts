@@ -61,6 +61,7 @@ function buildSystemPrompt(route: { question: CanonicalQuestion; score: number }
     "- The knowledge data is written in neutral factual language; convert it into concise first-person answers.",
     "- Do not copy tool payloads line by line. Synthesize them into cohesive, human-readable terminal sentences.",
     "- When asked about projects, work, or publications, explain what I built, designed, studied, improved, or achieved.",
+    "- When referring to publication years, use natural phrasing such as 'papers published in 2025' or 'my 2025 publications'. Do not use awkward forms like '2025 work'.",
     "- Use conversation history only to resolve follow-up references. Keep answers grounded in tools.",
     "- If a fact is missing from tool results, output exactly: > WARN: Info not found in registry.",
     "- Expose only public contact information returned by tools.",
