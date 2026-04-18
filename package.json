@@ -13,8 +13,10 @@
     "dev:site": "npm run dev --workspace @academic-homepage/site",
     "dev:edge": "npm run dev --workspace @academic-homepage/edge",
     "seed:preview": "npm run seed:preview --workspace @academic-homepage/edge",
+    "seed:vectorize:preview": "npm run seed:vectorize:preview --workspace @academic-homepage/edge",
     "seed:kv:local": "npm run seed:kv:local --workspace @academic-homepage/edge",
     "seed:kv:remote": "npm run seed:kv:remote --workspace @academic-homepage/edge",
+    "seed:vectorize:remote": "npm run seed:vectorize:remote --workspace @academic-homepage/edge",
     "db:apply:local": "npm run db:apply:local --workspace @academic-homepage/edge",
     "db:apply:remote": "npm run db:apply:remote --workspace @academic-homepage/edge",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"

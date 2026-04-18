@@ -18,6 +18,8 @@ import {
 const TYPE_INTERVAL_MS = 15;
 const LINE_SETTLE_MS = 90;
 const MOBILE_KEYBOARD_BLUR_THRESHOLD_PX = 18;
+const KEYBOARD_RESET_DELAYS_MS = [0, 120, 280, 520];
+const INITIAL_VIEWPORT_SNAPSHOT_DELAYS_MS = [0, 240, 720];
 
 function resolveApiBaseUrl() {
   if (typeof window === "undefined") {
@@ -161,6 +163,16 @@ function getTypingDuration(text: string) {
   return Math.max(text.length, 1) * TYPE_INTERVAL_MS + LINE_SETTLE_MS;
 }
 
+function restoreDocumentViewportPosition(behavior: ScrollBehavior = "auto") {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.scrollTo({ top: 0, left: 0, behavior });
+  document.documentElement.scrollTo?.({ top: 0, left: 0, behavior });
+  document.body.scrollTo?.({ top: 0, left: 0, behavior });
+}
+
 function TypingText({ text, isTyping }: { text: string; isTyping?: boolean }) {
   const [displayedText, setDisplayedText] = useState(isTyping ? "" : text);
 
@@ -189,6 +201,8 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
   const [entries, setEntries] = useState<TerminalEntry[]>(() =>
     buildBootEntries(snapshot)
   );
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [conversationHistory, setConversationHistory] = useState<ConversationTurn[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -205,13 +219,55 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
   const lineSequenceRef = useRef(0);
   const touchStartYRef = useRef<number | null>(null);
   const touchBlurredRef = useRef(false);
+  const viewportResetTimersRef = useRef<number[]>([]);
+  const initialViewportTimersRef = useRef<number[]>([]);
+  const isFocusedRef = useRef(false);
+  const settledViewportHeightRef = useRef(0);
   const sessionId = useMemo(() => crypto.randomUUID(), []);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    if (window.innerWidth >= 768) {
+      inputRef.current?.focus();
+    }
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewportMode = () => setIsMobileViewport(mediaQuery.matches);
+
+    updateViewportMode();
+    mediaQuery.addEventListener("change", updateViewportMode);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateViewportMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    isFocusedRef.current = isFocused;
+  }, [isFocused]);
+
+  const clearViewportResetTimers = () => {
+    for (const timerId of viewportResetTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+
+    viewportResetTimersRef.current = [];
+  };
+
+  const clearInitialViewportTimers = () => {
+    for (const timerId of initialViewportTimersRef.current) {
+      window.clearTimeout(timerId);
+    }
+
+    initialViewportTimersRef.current = [];
+  };
+
+  const scrollOutputToLatest = (behavior: ScrollBehavior = "auto") => {
     const viewport = scrollRef.current;
     if (!viewport) {
       return;
@@ -219,8 +275,92 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
 
     viewport.scrollTo({
       top: viewport.scrollHeight,
-      behavior: "smooth"
+      behavior
     });
+  };
+
+  const syncAppHeight = (height: number) => {
+    document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
+  };
+
+  const readVisibleViewportHeight = () =>
+    window.visualViewport?.height ??
+    window.innerHeight ??
+    document.documentElement.clientHeight;
+
+  const captureSettledViewportHeight = () => {
+    const height = Math.round(
+      Math.max(
+        window.visualViewport?.height ?? 0,
+        window.innerHeight,
+        document.documentElement.clientHeight
+      )
+    );
+    settledViewportHeightRef.current = Math.max(settledViewportHeightRef.current, height);
+    return settledViewportHeightRef.current;
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const updateAppHeight = () => {
+      const visibleHeight = Math.round(readVisibleViewportHeight());
+
+      if (!isFocusedRef.current) {
+        captureSettledViewportHeight();
+      }
+
+      const stableHeight =
+        settledViewportHeightRef.current > 0 ? settledViewportHeightRef.current : visibleHeight;
+      const viewportOffsetTop = Math.round(window.visualViewport?.offsetTop ?? 0);
+      const nextKeyboardInset = isFocusedRef.current
+        ? Math.max(0, stableHeight - visibleHeight - viewportOffsetTop)
+        : 0;
+
+      syncAppHeight(stableHeight);
+      setKeyboardInset(nextKeyboardInset);
+    };
+
+    let frameId = 0;
+    const syncViewport = () => {
+      cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        updateAppHeight();
+
+        if (document.activeElement !== inputRef.current) {
+          restoreDocumentViewportPosition("auto");
+        }
+      });
+    };
+
+    updateAppHeight();
+    clearInitialViewportTimers();
+    initialViewportTimersRef.current = INITIAL_VIEWPORT_SNAPSHOT_DELAYS_MS.map((delay) =>
+      window.setTimeout(() => {
+        if (isFocusedRef.current) {
+          return;
+        }
+
+        syncAppHeight(captureSettledViewportHeight());
+        restoreDocumentViewportPosition("auto");
+      }, delay)
+    );
+
+    window.visualViewport?.addEventListener("resize", syncViewport);
+    window.addEventListener("orientationchange", syncViewport);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      clearInitialViewportTimers();
+      window.visualViewport?.removeEventListener("resize", syncViewport);
+      window.removeEventListener("orientationchange", syncViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    scrollOutputToLatest("smooth");
   }, [entries]);
 
   const isBootState =
@@ -513,74 +653,98 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
     setInput(historyRef.current[historyIndexRef.current] ?? "");
   };
 
-  return (
-    <section className="relative flex h-[100dvh] w-full max-w-[920px] flex-col overflow-hidden rounded-none border-none bg-gradient-to-b from-[#02110a] to-[#010a05] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:h-[min(84dvh,760px)] md:rounded-xl md:border md:border-phosphor-900/50 md:bg-gradient-to-b md:from-[#02110a]/95 md:to-[#010a05]/95 md:shadow-phosphor md:backdrop-blur-xl md:pt-0 md:pb-0">
-      <div className="mobile-scanlines absolute inset-0 z-0 opacity-50 md:hidden" aria-hidden="true" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-phosphor-500/10 to-transparent" />
+  const stabilizeFocusViewport = () => {
+    clearViewportResetTimers();
 
-      <div className="scan-pass pointer-events-none absolute inset-x-0 top-[-30%] z-0 h-24 bg-gradient-to-b from-transparent via-phosphor-100/10 to-transparent blur-2xl" />
+    viewportResetTimersRef.current = KEYBOARD_RESET_DELAYS_MS.map((delay) =>
+      window.setTimeout(() => {
+        if (document.activeElement !== inputRef.current) {
+          return;
+        }
 
-      {/* Mobile Status Bar */}
-      <header className="relative z-10 flex items-center justify-between px-4 py-2 md:hidden">
-        <span className="type-prompt text-xs font-bold tracking-widest text-phosphor-500/80">SYS.OP // ONLINE</span>
-        <span className="h-2 w-2 rounded-full bg-phosphor-500 shadow-[0_0_8px_rgba(71,230,91,0.8)] animate-pulse" />
-      </header>
+        const currentHeight = readVisibleViewportHeight();
+        const stableHeight =
+          settledViewportHeightRef.current > 0
+            ? settledViewportHeightRef.current
+            : Math.round(currentHeight);
+        const viewportOffsetTop = Math.round(window.visualViewport?.offsetTop ?? 0);
 
-      {/* Desktop Header */}
-      <header className="relative z-10 hidden bg-black/20 px-5 py-5 md:block md:px-7">
-        <p className="type-prompt text-3xl uppercase tracking-[0.28em] text-phosphor-50">
-          Terminal
-        </p>
-      </header>
+        syncAppHeight(stableHeight);
+        setKeyboardInset(
+          Math.max(0, stableHeight - Math.round(currentHeight) - viewportOffsetTop)
+        );
+        restoreDocumentViewportPosition("auto");
+        scrollOutputToLatest("auto");
+      }, delay)
+    );
+  };
 
-      <div
-        ref={scrollRef}
-        className="terminal-scrollbar relative z-10 flex-1 overflow-y-auto px-4 py-4 md:px-7 md:py-10"
-        onTouchStart={handleViewportTouchStart}
-        onTouchMove={handleViewportTouchMove}
-        onTouchEnd={resetViewportTouchTracking}
-        onTouchCancel={resetViewportTouchTracking}
-        aria-live="polite"
-        aria-atomic="false"
-      >
-        <div className="space-y-1">
-          {entries.map((entry, index) =>
-            entry.kind === "user" ? (
-              <div
-                key={entry.id}
-                className={`flex items-baseline gap-3 ${index > 0 ? "pt-3" : ""}`}
-              >
-                <span className="w-[2ch] flex-none text-sm font-medium leading-6 text-phosphor-300 md:text-[15px] md:leading-6">
-                  $
-                </span>
-                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-phosphor-50 md:text-[15px] md:leading-6">
-                  {entry.text || " "}
-                </p>
-              </div>
-            ) : (
-              <p
-                key={entry.id}
-                className={`whitespace-pre-wrap break-words text-sm leading-6 md:text-[15px] md:leading-6 ${kindToClassName(
-                  entry.kind
-                )}`}
-              >
-                <TypingText text={entry.text} isTyping={entry.isTyping} />
-                {entry.id === activeAssistantEntryId && isStreaming ? (
-                  <span aria-hidden="true" className="terminal-inline-cursor ml-[0.2em]">
-                    █
-                  </span>
-                ) : null}
-              </p>
-            )
-          )}
-        </div>
-      </div>
+  const handleInputBlur = () => {
+    setIsFocused(false);
+    setKeyboardInset(0);
+    clearViewportResetTimers();
 
-      <form
-        onSubmit={handleSubmit}
-        className="relative z-10 flex flex-col bg-black/60 pt-3 md:bg-black/40 md:pt-4"
-      >
-        <div className={`gap-2 overflow-x-auto px-4 pb-3 terminal-scrollbar md:hidden ${input ? 'hidden' : 'flex'}`}>
+    viewportResetTimersRef.current = KEYBOARD_RESET_DELAYS_MS.map((delay) =>
+      window.setTimeout(() => {
+        restoreDocumentViewportPosition("auto");
+
+        const fallbackHeight = Math.max(
+          captureSettledViewportHeight(),
+          Math.round(readVisibleViewportHeight())
+        );
+
+        syncAppHeight(fallbackHeight);
+        setKeyboardInset(0);
+        scrollOutputToLatest("auto");
+      }, delay)
+    );
+  };
+
+  const entriesMarkup = (
+    <div className="space-y-1">
+      {entries.map((entry, index) =>
+        entry.kind === "user" ? (
+          <div
+            key={entry.id}
+            className={`flex items-baseline gap-3 ${index > 0 ? "pt-3" : ""}`}
+          >
+            <span className="w-[2ch] flex-none text-sm font-medium leading-6 text-phosphor-300 md:text-[15px] md:leading-6">
+              $
+            </span>
+            <p className="whitespace-pre-wrap break-words text-sm leading-6 text-phosphor-50 md:text-[15px] md:leading-6">
+              {entry.text || " "}
+            </p>
+          </div>
+        ) : (
+          <p
+            key={entry.id}
+            className={`whitespace-pre-wrap break-words text-sm leading-6 md:text-[15px] md:leading-6 ${kindToClassName(
+              entry.kind
+            )}`}
+          >
+            <TypingText text={entry.text} isTyping={entry.isTyping} />
+            {entry.id === activeAssistantEntryId && isStreaming ? (
+              <span aria-hidden="true" className="terminal-inline-cursor ml-[0.2em]">
+                █
+              </span>
+            ) : null}
+          </p>
+        )
+      )}
+    </div>
+  );
+
+  const composerMarkup = (
+    <form
+      onSubmit={handleSubmit}
+      className="relative z-10 flex shrink-0 flex-col border-t border-phosphor-900/30 bg-[#020d07]/97 pt-3 backdrop-blur-md md:border-t-0 md:bg-black/40 md:pt-4 md:backdrop-blur-none"
+    >
+      {isMobileViewport ? (
+        <div
+          className={`terminal-scrollbar flex shrink-0 gap-2 overflow-x-auto px-4 pb-3 ${
+            input ? "hidden" : ""
+          }`}
+        >
           {["/about", "/contact", "/help", "/clear"].map((cmd) => (
             <button
               key={cmd}
@@ -589,45 +753,105 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
                 interruptActiveRequest();
                 executeCommand(cmd);
               }}
-              className="whitespace-nowrap rounded-sm bg-[#062512] px-4 py-1.5 text-xs font-medium tracking-wide text-phosphor-100 shadow-[inset_0_1px_0_rgba(141,244,141,0.15),0_1px_2px_rgba(0,0,0,0.4)] active:bg-phosphor-900 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] transition-all"
+              className="whitespace-nowrap rounded-sm bg-[#062512] px-4 py-1.5 text-xs font-medium tracking-wide text-phosphor-100 shadow-[inset_0_1px_0_rgba(141,244,141,0.15),0_1px_2px_rgba(0,0,0,0.4)] transition-all active:bg-phosphor-900 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]"
             >
               {cmd}
             </button>
           ))}
         </div>
-        
-        <label className="flex cursor-text items-center gap-3 px-4 pb-3 md:px-7 md:pb-4">
-          <span className="type-prompt text-2xl text-phosphor-300">$</span>
-          <div className="relative flex-1">
-            <div className="pointer-events-none flex min-h-6 items-center overflow-hidden text-sm text-phosphor-50 md:min-h-[1.5rem] md:text-[15px]">
-              {input ? <span className="whitespace-pre-wrap break-all">{input}</span> : null}
-              <span
-                aria-hidden="true"
-                className={`terminal-block-cursor ${input ? 'ml-[0.18em]' : 'mr-[0.5em]'} ${
-                  isFocused ? "opacity-100" : "opacity-70"
-                }`}
-              >
-                █
-              </span>
-              {!input ? <span className="opacity-30">Type /help for commands...</span> : null}
-            </div>
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleHistoryKey}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              spellCheck={false}
-              autoCapitalize="none"
-              autoComplete="off"
-              autoCorrect="off"
-              aria-label="Terminal input"
-              className="terminal-hidden-input absolute inset-0 w-full border-none bg-transparent outline-none"
-            />
+      ) : null}
+
+      <label className="flex shrink-0 cursor-text items-center gap-3 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-7 md:pb-4">
+        <span className="type-prompt text-2xl text-phosphor-300">$</span>
+        <div className="relative flex-1">
+          <div className="pointer-events-none flex min-h-6 items-center overflow-hidden text-sm text-phosphor-50 md:min-h-[1.5rem] md:text-[15px]">
+            {input ? <span className="whitespace-pre-wrap break-all">{input}</span> : null}
+            <span
+              aria-hidden="true"
+              className={`terminal-block-cursor ${input ? "ml-[0.18em]" : "mr-[0.5em]"} ${
+                isFocused ? "opacity-100" : "opacity-70"
+              }`}
+            >
+              █
+            </span>
+            {!input ? <span className="opacity-30">Type /help for commands...</span> : null}
           </div>
-        </label>
-      </form>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleHistoryKey}
+            onFocus={() => {
+              setIsFocused(true);
+              stabilizeFocusViewport();
+            }}
+            onBlur={handleInputBlur}
+            spellCheck={false}
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect="off"
+            aria-label="Terminal input"
+            className="terminal-hidden-input absolute inset-0 w-full border-none bg-transparent text-base outline-none md:text-[15px]"
+          />
+        </div>
+      </label>
+    </form>
+  );
+
+  if (isMobileViewport) {
+    return (
+      <section className="fixed inset-0 z-20 grid h-[var(--app-height)] min-h-0 w-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-none border-none bg-gradient-to-b from-[#02110a] to-[#010a05] pt-0">
+        <div className="mobile-scanlines absolute inset-0 z-0 opacity-50" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-phosphor-500/10 to-transparent" />
+        <div className="scan-pass pointer-events-none absolute inset-x-0 top-[-30%] z-0 h-24 bg-gradient-to-b from-transparent via-phosphor-100/10 to-transparent blur-2xl" />
+
+        <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-phosphor-900/30 bg-[#031109]/96 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md">
+          <span className="type-prompt text-xs font-bold tracking-widest text-phosphor-500/80">
+            SYS.OP // ONLINE
+          </span>
+          <span className="h-2 w-2 rounded-full bg-phosphor-500 shadow-[0_0_8px_rgba(71,230,91,0.8)] animate-pulse" />
+        </header>
+
+        <div
+          ref={scrollRef}
+          className="terminal-scroll-region terminal-scrollbar relative z-10 min-h-0 overflow-y-auto px-4 py-4"
+          onTouchStart={handleViewportTouchStart}
+          onTouchMove={handleViewportTouchMove}
+          onTouchEnd={resetViewportTouchTracking}
+          onTouchCancel={resetViewportTouchTracking}
+          aria-live="polite"
+          aria-atomic="false"
+          style={{ paddingBottom: `${16 + keyboardInset}px` }}
+        >
+          {entriesMarkup}
+        </div>
+
+        <div style={{ transform: `translateY(-${keyboardInset}px)` }}>{composerMarkup}</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="relative flex h-[min(84dvh,760px)] min-h-0 w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-phosphor-900/50 bg-gradient-to-b from-[#02110a]/95 to-[#010a05]/95 shadow-phosphor backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-phosphor-500/10 to-transparent" />
+      <div className="scan-pass pointer-events-none absolute inset-x-0 top-[-30%] z-0 h-24 bg-gradient-to-b from-transparent via-phosphor-100/10 to-transparent blur-2xl" />
+
+      <header className="relative z-10 bg-black/20 px-5 py-5 md:px-7">
+        <p className="type-prompt text-3xl uppercase tracking-[0.28em] text-phosphor-50">
+          Terminal
+        </p>
+      </header>
+
+      <div
+        ref={scrollRef}
+        className="terminal-scroll-region terminal-scrollbar relative z-10 min-h-0 flex-1 overflow-y-auto px-7 py-10"
+        aria-live="polite"
+        aria-atomic="false"
+      >
+        {entriesMarkup}
+      </div>
+
+      {composerMarkup}
     </section>
   );
 }

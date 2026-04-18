@@ -39,9 +39,14 @@ Recommended storage:
 4. Copy the returned IDs into [apps/edge/wrangler.toml](/home/jordon/academic-homepage/apps/edge/wrangler.toml:1).
 5. Run `npm run db:apply:remote`.
 6. Upload the generated KV seed artifact.
-7. Create the Vectorize index even if you do not upsert vectors yet. The current repository only generates `vectorize-manifest.json` metadata, not a ready-to-upsert embedding file.
+7. To populate Vectorize, set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `apps/edge/.dev.vars`, then run:
+   - `npm run seed:vectorize:remote`
 8. Lexical fallback routing remains available if the Vectorize index is empty or unavailable.
-9. If real site content stays in untracked `data/*.local.json`, deploy the Pages site with Direct Upload instead of Git integration. A Git-integrated Pages build will only see tracked `*.example.json` files.
+9. If real site content stays in untracked `data/*.local.json`, deploy the Pages site with Direct Upload or `wrangler pages deploy` instead of Git integration. A Git-integrated Pages build will only see tracked `*.example.json` files.
+10. Bind the Pages project to `home.jihd.net`.
+11. Add Worker routes for:
+    - `home.jihd.net/ask*`
+    - `home.jihd.net/health*`
 
 ## Runtime limits
 
@@ -72,14 +77,18 @@ Current canonical question count is project-managed, not hard-limited by code. T
 3. Run `npm run build`
 4. Run `npm run seed:preview`
 5. Sync `kv-bulk.json` to KV with `npm run seed:kv:remote`
-6. If you have a separate embedding + upsert workflow, update Vectorize from your generated vectors. `vectorize-manifest.json` alone is only a manifest, not a ready-to-upsert vector file.
+6. If canonical questions changed, regenerate and upsert vectors:
+   - `npm run seed:vectorize:remote`
 7. If schema changed, apply the D1 schema:
    - local: `npm run db:apply:local`
    - remote: `npm run db:apply:remote`
-8. Deploy the Worker
-9. Deploy the static site
-10. Bind the Pages project to the production hostname
-11. Add Worker routes for `/ask*` and `/health*` on the same hostname
+8. Deploy the Worker:
+   - `npm exec --workspace @academic-homepage/edge wrangler deploy`
+9. Deploy the static site from the local build output:
+   - `npx wrangler pages deploy apps/site/out --project-name academic-homepage-site`
+10. Ensure the Pages project is bound to the production hostname:
+    - `home.jihd.net`
+11. Ensure Worker routes exist for `/ask*` and `/health*` on the same hostname
 12. Run production smoke tests
 
 ## Production defaults
@@ -89,10 +98,14 @@ Current canonical question count is project-managed, not hard-limited by code. T
 - secrets only in Cloudflare
 - public contact output limited to email and GitHub
 - the frontend assumes same-origin API calls in production
+- for this repo, production updates are local-build-first:
+  - Worker via `wrangler deploy`
+  - frontend via `wrangler pages deploy apps/site/out ...`
 - if real `site.local.json` content is not committed, use Pages Direct Upload for production builds
 - only routed LLM requests count toward the daily quota
 - tracked repo JSON should remain example-only in the public repository
 - runtime knowledge comes from KV, not repo JSON
+- Vectorize seed generation requires a local Cloudflare API token with Workers AI access
 
 ## Smoke-test checklist
 

@@ -1,6 +1,8 @@
 name = "academic-homepage-api"
 main = "src/index.ts"
 compatibility_date = "2026-04-16"
+workers_dev = false
+preview_urls = false
 
 [ai]
 binding = "AI"
@@ -12,7 +14,7 @@ LLM_STREAM_DELAY_MS = "18"
 
 [[kv_namespaces]]
 binding = "PROFILE_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "cb467bb0830645e58e9087fab7ef8e99"
 
 [[vectorize]]
 binding = "CANONICAL_INDEX"
@@ -21,4 +23,4 @@ index_name = "academic-homepage-questions"
 [[d1_databases]]
 binding = "DB"
 database_name = "academic-homepage"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "07f1c149-3e52-4927-81aa-e595d7c1bce9"

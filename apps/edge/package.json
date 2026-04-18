@@ -8,8 +8,10 @@
     "build": "XDG_CONFIG_HOME=../../.wrangler-config wrangler deploy --dry-run",
     "typecheck": "tsc --noEmit",
     "seed:preview": "node ./scripts/prepare-seed.mjs",
+    "seed:vectorize:preview": "NODE_USE_ENV_PROXY=1 node ./scripts/prepare-vectorize.mjs",
     "seed:kv:local": "npm run seed:preview && XDG_CONFIG_HOME=../../.wrangler-config wrangler kv bulk put ./.seed/kv-bulk.json --binding PROFILE_KV --local",
     "seed:kv:remote": "npm run seed:preview && XDG_CONFIG_HOME=../../.wrangler-config wrangler kv bulk put ./.seed/kv-bulk.json --binding PROFILE_KV --remote",
+    "seed:vectorize:remote": "npm run seed:vectorize:preview && XDG_CONFIG_HOME=../../.wrangler-config wrangler vectorize upsert academic-homepage-questions --file=./.seed/vectorize-upsert.ndjson",
     "db:apply:local": "XDG_CONFIG_HOME=../../.wrangler-config wrangler d1 execute academic-homepage --local --file=../../sql/schema.sql",
     "db:apply:remote": "XDG_CONFIG_HOME=../../.wrangler-config wrangler d1 execute academic-homepage --remote --file=../../sql/schema.sql"
   },

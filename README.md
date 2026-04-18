@@ -139,7 +139,12 @@ Seed preview writes:
 - `apps/edge/.seed/kv-bulk.json`
 - `apps/edge/.seed/vectorize-manifest.json`
 
-The current repository does not generate a ready-to-upsert vector file. `vectorize-manifest.json` is only a manifest of canonical question text and metadata. If Vectorize is empty or unavailable, the Worker falls back to lexical routing.
+Vectorize embedding workflow:
+
+- `npm run seed:vectorize:preview` generates `apps/edge/.seed/vectorize-upsert.ndjson`
+- `npm run seed:vectorize:remote` upserts the generated vectors into `academic-homepage-questions`
+
+This workflow requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `apps/edge/.dev.vars` (or process env). If Vectorize is empty or unavailable, the Worker still falls back to lexical routing.
 
 ## Public Data Policy
 
@@ -164,3 +169,11 @@ The intended reuse path is:
 ## Deployment
 
 Deployment, provisioning, release order, rollback, and smoke tests live in [docs/deployment.md](docs/deployment.md).
+
+Current production shape:
+
+- Pages serves `https://home.jihd.net`
+- the Worker serves same-origin `/ask*` and `/health*`
+- real site content stays in local `data/*.local.json`
+- production site updates use local build output plus `wrangler pages deploy`
+- do not rely on Pages Git integration if the real `site.local.json` content is not committed
