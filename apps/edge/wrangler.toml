@@ -1,0 +1,26 @@
+name = "academic-homepage-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-16"
+
+[ai]
+binding = "AI"
+
+[vars]
+SITE_ORIGIN = "http://localhost:3000"
+LLM_BASE_URL = "https://api.openai.com/v1"
+LLM_MODEL = "gpt-4.1-mini"
+LLM_MOCK_MODE = "false"
+LLM_STREAM_DELAY_MS = "18"
+
+[[kv_namespaces]]
+binding = "PROFILE_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[[vectorize]]
+binding = "CANONICAL_INDEX"
+index_name = "academic-homepage-questions"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "academic-homepage"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"

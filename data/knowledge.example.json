@@ -1,0 +1,119 @@
+{
+  "profile": {
+    "name": "Your Name",
+    "nativeName": "",
+    "role": "Your Primary Role",
+    "organization": "Your Current Organization",
+    "current": "Replace with your current position, organization, and period.",
+    "focus": "Replace with your high-level research or engineering focus.",
+    "summary": "Replace with a compact paragraph that explains who you are and what kind of work you do.",
+    "keywords": [
+      "keyword-one",
+      "keyword-two",
+      "keyword-three"
+    ],
+    "location": "Your City or Region"
+  },
+  "education": [
+    {
+      "id": "education-01",
+      "institution": "Your University",
+      "degree": "Your Degree",
+      "field": "Your Field",
+      "period": "YYYY - YYYY",
+      "focus": "Replace with a concise summary of your study focus.",
+      "honors": [
+        "Optional honor or scholarship"
+      ]
+    }
+  ],
+  "workExperience": [
+    {
+      "id": "work-01",
+      "company": "Your Company or Lab",
+      "role": "Your Role",
+      "period": "YYYY - YYYY",
+      "summary": "Replace with a concise summary of this work experience.",
+      "details": [
+        "Replace with a fuller paragraph about the business context, your responsibility, and the main technical challenge.",
+        "Replace with another paragraph describing the core design decisions, trade-offs, or implementation details.",
+        "Replace with one paragraph about outcomes, metrics, or business impact."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-alpha",
+      "name": "Flagship Platform Project",
+      "period": "YYYY - YYYY",
+      "summary": "Replace with a concise summary of one representative project.",
+      "tags": [
+        "tag-one",
+        "tag-two",
+        "tag-three"
+      ],
+      "details": [
+        "Replace with a paragraph describing the project background and target task.",
+        "Replace with a paragraph describing the main architecture or system design.",
+        "Replace with a paragraph describing the key optimization ideas, controls, or trade-offs.",
+        "Replace with a paragraph describing metrics, outcomes, or business impact."
+      ]
+    },
+    {
+      "id": "project-beta",
+      "name": "Agent Research Assistant",
+      "period": "YYYY - YYYY",
+      "summary": "Replace with a concise summary of another representative project.",
+      "tags": [
+        "tag-one",
+        "tag-two",
+        "tag-three"
+      ],
+      "details": [
+        "Replace with a paragraph describing the project background and target task.",
+        "Replace with a paragraph describing the main architecture or system design.",
+        "Replace with a paragraph describing the key optimization ideas, controls, or trade-offs.",
+        "Replace with a paragraph describing metrics, outcomes, or business impact."
+      ]
+    }
+  ],
+  "publications": [
+    {
+      "id": "publication-01",
+      "title": "Replace with a publication title",
+      "venue": "Replace with a venue",
+      "year": 2026,
+      "summary": "Replace with a concise summary of this publication.",
+      "notes": "Optional note"
+    }
+  ],
+  "awards": [
+    {
+      "id": "award-01",
+      "title": "Replace with an award or honor",
+      "issuer": "Replace with an issuer",
+      "year": 2026,
+      "summary": "Replace with a concise summary of the award."
+    }
+  ],
+  "skills": [
+    {
+      "category": "Primary Capability Area",
+      "items": [
+        "Replace with one high-level strength",
+        "Replace with another high-level strength"
+      ]
+    },
+    {
+      "category": "Secondary Capability Area",
+      "items": [
+        "Replace with one high-level strength",
+        "Replace with another high-level strength"
+      ]
+    }
+  ],
+  "contact": {
+    "email": "you@example.com",
+    "github": "https://github.com/your-handle"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "about": [
+    "name: Your Name",
+    "role: Your Primary Role",
+    "current: Replace with your current position, organization, and period.",
+    "focus: Replace with your high-level focus areas.",
+    "summary: Replace with a compact homepage summary."
+  ],
+  "contact": {
+    "email": "you@example.com",
+    "github": "https://github.com/your-handle"
+  }
+}

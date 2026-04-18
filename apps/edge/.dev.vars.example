@@ -1,0 +1,3 @@
+IP_HASH_SALT=replace-me-with-a-long-random-string
+LLM_API_KEY=
+LLM_MOCK_MODE=false

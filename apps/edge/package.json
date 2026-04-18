@@ -1,0 +1,24 @@
+{
+  "name": "@academic-homepage/edge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "XDG_CONFIG_HOME=../../.wrangler-config wrangler dev src/index.ts --local",
+    "build": "XDG_CONFIG_HOME=../../.wrangler-config wrangler deploy --dry-run",
+    "typecheck": "tsc --noEmit",
+    "seed:preview": "node ./scripts/prepare-seed.mjs",
+    "seed:kv:local": "npm run seed:preview && XDG_CONFIG_HOME=../../.wrangler-config wrangler kv bulk put ./.seed/kv-bulk.json --binding PROFILE_KV --local",
+    "seed:kv:remote": "npm run seed:preview && XDG_CONFIG_HOME=../../.wrangler-config wrangler kv bulk put ./.seed/kv-bulk.json --binding PROFILE_KV --remote",
+    "db:apply:local": "XDG_CONFIG_HOME=../../.wrangler-config wrangler d1 execute academic-homepage --local --file=../../sql/schema.sql",
+    "db:apply:remote": "XDG_CONFIG_HOME=../../.wrangler-config wrangler d1 execute academic-homepage --remote --file=../../sql/schema.sql"
+  },
+  "dependencies": {
+    "@academic-homepage/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250410.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.11.1"
+  }
+}

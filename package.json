@@ -1,0 +1,25 @@
+{
+  "name": "academic-homepage",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @academic-homepage/site && npm run build --workspace @academic-homepage/edge",
+    "check": "npm run typecheck --workspace @academic-homepage/shared && npm run typecheck --workspace @academic-homepage/site && npm run typecheck --workspace @academic-homepage/edge && npm test",
+    "dev:site": "npm run dev --workspace @academic-homepage/site",
+    "dev:edge": "npm run dev --workspace @academic-homepage/edge",
+    "seed:preview": "npm run seed:preview --workspace @academic-homepage/edge",
+    "seed:kv:local": "npm run seed:kv:local --workspace @academic-homepage/edge",
+    "seed:kv:remote": "npm run seed:kv:remote --workspace @academic-homepage/edge",
+    "db:apply:local": "npm run db:apply:local --workspace @academic-homepage/edge",
+    "db:apply:remote": "npm run db:apply:remote --workspace @academic-homepage/edge",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

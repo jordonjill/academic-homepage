@@ -1,0 +1,196 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --screen-bg: #031109;
+  --screen-panel: rgba(2, 17, 10, 0.9);
+  --screen-border: rgba(141, 244, 141, 0.18);
+  --screen-bright: #d2ffd0;
+  --screen-dim: rgba(141, 244, 141, 0.72);
+  --scanline: rgba(6, 32, 12, 0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top, rgba(11, 63, 25, 0.38), transparent 32%),
+    linear-gradient(180deg, #05150b 0%, #020904 100%);
+}
+
+body {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  background: transparent;
+  color: var(--screen-bright);
+}
+
+::selection {
+  background: rgba(71, 230, 91, 0.28);
+  color: #f1fff0;
+}
+
+.crt {
+  pointer-events: none;
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 1);
+  background: radial-gradient(circle, transparent 50%, rgba(0, 0, 0, 0.8) 120%);
+}
+
+.crt::before,
+.crt::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.crt::before {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.02),
+      rgba(255, 255, 255, 0.01) 50%,
+      transparent 50%
+    );
+  background-size: 100% 4px;
+  opacity: 0.06;
+}
+
+.crt::after {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.02),
+      rgba(0, 255, 0, 0.01),
+      rgba(0, 0, 255, 0.02)
+    );
+  mix-blend-mode: screen;
+  opacity: 0.08;
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(71, 230, 91, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(71, 230, 91, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(circle at center, black 42%, transparent 82%);
+  opacity: 0.06;
+  animation: pulsegrid 2.8s ease-in-out infinite;
+}
+
+.noise-overlay {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.045), transparent 12%),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.025), transparent 14%),
+    radial-gradient(circle at 30% 70%, rgba(255, 255, 255, 0.03), transparent 16%);
+  mix-blend-mode: screen;
+  opacity: 0.08;
+}
+
+.mobile-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+}
+
+.terminal-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(4, 16, 8, 0.95);
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(71, 230, 91, 0.2);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.type-prompt {
+  font-family: "VT323", monospace;
+  letter-spacing: 0.08em;
+}
+
+.terminal-hidden-input {
+  color: transparent;
+  caret-color: transparent;
+}
+
+.terminal-block-cursor {
+  display: inline-block;
+  color: #8df48d;
+  text-shadow: 0 0 12px rgba(141, 244, 141, 0.55);
+  animation: block-blink 1.65s steps(1, end) infinite;
+}
+
+.terminal-inline-cursor {
+  display: inline-block;
+  color: #d2ffd0;
+  text-shadow: 0 0 10px rgba(210, 255, 208, 0.45);
+  animation: block-blink 1.65s steps(1, end) infinite;
+}
+
+.caret::after {
+  display: inline-block;
+  width: 0.6ch;
+  margin-left: 0.2ch;
+  content: " ";
+  background: currentColor;
+  animation: blink 1s steps(1, end) infinite;
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes block-blink {
+  0%,
+  44% {
+    opacity: 1;
+  }
+  45%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.scan-pass {
+  animation: scan 6.5s linear infinite;
+}

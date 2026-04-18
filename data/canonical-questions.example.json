@@ -1,0 +1,150 @@
+[
+  {
+    "id": "profile-01",
+    "intent": "profile",
+    "question": "Who are you?",
+    "toolHints": [
+      {
+        "name": "get_profile",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "profile-02",
+    "intent": "profile",
+    "question": "Tell me about your background.",
+    "toolHints": [
+      {
+        "name": "get_profile",
+        "args": {}
+      },
+      {
+        "name": "get_education",
+        "args": {
+          "limit": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "profile-03",
+    "intent": "profile",
+    "question": "What do you work on?",
+    "toolHints": [
+      {
+        "name": "get_profile",
+        "args": {}
+      },
+      {
+        "name": "get_skills",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "education-01",
+    "intent": "education",
+    "question": "What is your education background?",
+    "toolHints": [
+      {
+        "name": "get_education",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "work-01",
+    "intent": "work_experience",
+    "question": "What work experience do you have?",
+    "toolHints": [
+      {
+        "name": "get_work_experience",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "projects-01",
+    "intent": "projects",
+    "question": "What projects have you built?",
+    "toolHints": [
+      {
+        "name": "get_projects",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "projects-02",
+    "intent": "projects",
+    "question": "Tell me about your flagship platform project.",
+    "toolHints": [
+      {
+        "name": "get_projects",
+        "args": {
+          "projectId": "project-alpha"
+        }
+      }
+    ]
+  },
+  {
+    "id": "projects-03",
+    "intent": "projects",
+    "question": "Tell me about your agent research assistant project.",
+    "toolHints": [
+      {
+        "name": "get_projects",
+        "args": {
+          "projectId": "project-beta"
+        }
+      }
+    ]
+  },
+  {
+    "id": "publications-01",
+    "intent": "publications",
+    "question": "What papers have you published?",
+    "toolHints": [
+      {
+        "name": "get_publications",
+        "args": {
+          "limit": 5
+        }
+      }
+    ]
+  },
+  {
+    "id": "awards-01",
+    "intent": "awards",
+    "question": "What awards have you received?",
+    "toolHints": [
+      {
+        "name": "get_awards",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "skills-01",
+    "intent": "skills",
+    "question": "What are your main skills?",
+    "toolHints": [
+      {
+        "name": "get_skills",
+        "args": {}
+      }
+    ]
+  },
+  {
+    "id": "contact-01",
+    "intent": "contact",
+    "question": "How can I contact you?",
+    "toolHints": [
+      {
+        "name": "get_contact",
+        "args": {}
+      }
+    ]
+  }
+]
