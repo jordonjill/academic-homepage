@@ -1,6 +1,18 @@
 # Academic Homepage
 
-Retro CRT terminal homepage for personal information display. The product goal is narrow: let a visitor quickly understand who the owner is, what the owner works on, what has been built or published, and how to make contact.
+Retro CRT terminal homepage for personal information display, designed as a Cloudflare-first application.
+
+The product goal is narrow: let a visitor quickly understand who the owner is, what the owner works on, what has been built or published, and how to make contact.
+
+Application infrastructure runs on Cloudflare:
+
+- Cloudflare Pages serves the static Next.js frontend
+- Cloudflare Workers handles `/ask*` and `/health*`
+- Cloudflare KV stores deployed profile and knowledge content
+- Cloudflare D1 stores quota, abuse reputation, and request logs
+- Cloudflare Vectorize stores semantic routing embeddings
+- Cloudflare Workers AI generates embeddings for canonical questions
+- an OpenAI-compatible upstream LLM provides tool-calling answer generation
 
 ## Workspace
 
@@ -162,9 +174,12 @@ The intended reuse path is:
 1. fork the repository or use it as a template
 2. copy the example files to local override files
 3. replace the local content with personal data
-4. create separate Cloudflare resources
-5. seed KV and Vectorize
-6. deploy the Worker and static site
+4. review and customize the system prompt in `apps/edge/src/llm.ts`
+5. create separate Cloudflare resources
+6. seed KV and Vectorize
+7. deploy the Worker and static site
+
+The tracked prompt is intentionally owner-generic, but it still encodes this project's terminal tone, scope, and answer policy. Forks should adapt it to their own identity, disclosure rules, and preferred response style.
 
 ## Deployment
 

@@ -23,6 +23,8 @@ Required Worker bindings and runtime configuration:
 - `SITE_ORIGIN`
 - `LLM_MOCK_MODE`
 - `LLM_STREAM_DELAY_MS`
+- cron trigger:
+  - `17 3 * * *`
 
 Recommended storage:
 
@@ -31,22 +33,50 @@ Recommended storage:
 
 ## First-time provisioning
 
+Before provisioning, replace project-specific values in [apps/edge/wrangler.toml](/home/jordon/academic-homepage/apps/edge/wrangler.toml:1):
+
+- `name`
+- `SITE_ORIGIN`
+- `PROFILE_KV.id`
+- `DB.database_id`
+- `CANONICAL_INDEX.index_name`
+
+Also review owner-specific behavior before deployment:
+
+- local content:
+  - `data/site.local.json`
+  - `data/knowledge.local.json`
+  - `data/canonical-questions.local.json`
+- system prompt:
+  - `apps/edge/src/llm.ts`
+
+The default prompt is owner-generic, but forks should still adjust the answer style, scope, disclosure policy, and out-of-scope behavior for their own profile.
+
+Also decide your Pages project name. The commands below use `academic-homepage-site` as this project's current Pages project name; replace it for another deployment.
+
 1. Create one D1 database:
    - `npm exec --workspace @academic-homepage/edge wrangler d1 create academic-homepage`
 2. Create one KV namespace:
    - `npm exec --workspace @academic-homepage/edge wrangler kv namespace create PROFILE_KV`
-3. Create one Vectorize index named `academic-homepage-questions`.
+3. Create one Vectorize index:
+   - `npx wrangler vectorize create academic-homepage-questions --dimensions=768 --metric=cosine`
 4. Copy the returned IDs into [apps/edge/wrangler.toml](/home/jordon/academic-homepage/apps/edge/wrangler.toml:1).
-5. Run `npm run db:apply:remote`.
-6. Upload the generated KV seed artifact.
-7. To populate Vectorize, set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `apps/edge/.dev.vars`, then run:
+5. Store Worker secrets:
+   - `npm exec --workspace @academic-homepage/edge wrangler secret put IP_HASH_SALT`
+   - `npm exec --workspace @academic-homepage/edge wrangler secret put LLM_API_KEY`
+   - `npm exec --workspace @academic-homepage/edge wrangler secret put LLM_BASE_URL`
+   - `npm exec --workspace @academic-homepage/edge wrangler secret put LLM_MODEL`
+6. Run `npm run db:apply:remote`.
+7. Upload the generated KV seed artifact:
+   - `npm run seed:kv:remote`
+8. To populate Vectorize, set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `apps/edge/.dev.vars`, then run:
    - `npm run seed:vectorize:remote`
-8. Lexical fallback routing remains available if the Vectorize index is empty or unavailable.
-9. If real site content stays in untracked `data/*.local.json`, deploy the Pages site with Direct Upload or `wrangler pages deploy` instead of Git integration. A Git-integrated Pages build will only see tracked `*.example.json` files.
-10. Bind the Pages project to `home.jihd.net`.
-11. Add Worker routes for:
-    - `home.jihd.net/ask*`
-    - `home.jihd.net/health*`
+9. Lexical fallback routing remains available if the Vectorize index is empty or unavailable.
+10. If real site content stays in untracked `data/*.local.json`, deploy the Pages site with Direct Upload or `wrangler pages deploy` instead of Git integration. A Git-integrated Pages build will only see tracked `*.example.json` files.
+11. Bind the Pages project to your production hostname.
+12. Add Worker routes for:
+    - `<your-hostname>/ask*`
+    - `<your-hostname>/health*`
 
 ## Runtime limits
 
@@ -64,6 +94,10 @@ Current hard-coded runtime limits:
   - up to `3` rounds
 - tool list slicing:
   - most `limit` fields are capped at `10`
+- scheduled D1 pruning:
+  - `request_log` rows older than `90` days are deleted
+  - `daily_usage` rows older than `1` day are deleted
+  - non-banned `ip_reputation` rows idle for `180` days are deleted
 
 Current canonical question count is project-managed, not hard-limited by code. The local set can grow beyond the current size as long as routing quality remains clear.
 
@@ -87,7 +121,7 @@ Current canonical question count is project-managed, not hard-limited by code. T
 9. Deploy the static site from the local build output:
    - `npx wrangler pages deploy apps/site/out --project-name academic-homepage-site`
 10. Ensure the Pages project is bound to the production hostname:
-    - `home.jihd.net`
+    - this project uses `home.jihd.net`
 11. Ensure Worker routes exist for `/ask*` and `/health*` on the same hostname
 12. Run production smoke tests
 
@@ -116,7 +150,7 @@ Current canonical question count is project-managed, not hard-limited by code. T
 - a relevant question streams a response
 - an unrelated question gets semantic reject
 - unsupported-language input does not consume quota
-- rate limit still blocks the 6th request
+- daily routed LLM quota blocks the 6th routed request from the same IP hash
 
 ## Rollback
 

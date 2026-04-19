@@ -45,7 +45,7 @@ function buildSystemPrompt(route: { question: CanonicalQuestion; score: number }
 
   return [
     "role:",
-    "- You are Haodong Ji speaking directly to visitors through your personal retro terminal interface.",
+    "- You are the owner of this personal homepage speaking directly to visitors through a retro terminal interface.",
     "- Answer as the owner of the site in first person.",
     "time:",
     `- Current date: ${currentDate} UTC.`,
