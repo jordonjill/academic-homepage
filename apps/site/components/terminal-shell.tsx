@@ -5,7 +5,7 @@ import type {
   SiteSnapshot,
   SseEvent
 } from "@academic-homepage/shared";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   BOOT_MESSAGE,
@@ -17,9 +17,7 @@ import {
 
 const TYPE_INTERVAL_MS = 15;
 const LINE_SETTLE_MS = 90;
-const MOBILE_KEYBOARD_BLUR_THRESHOLD_PX = 18;
-const KEYBOARD_RESET_DELAYS_MS = [0, 120, 280, 520];
-const INITIAL_VIEWPORT_SNAPSHOT_DELAYS_MS = [0, 240, 720];
+const MOBILE_KEYBOARD_BLUR_THRESHOLD_PX = 72;
 
 function resolveApiBaseUrl() {
   if (typeof window === "undefined") {
@@ -163,14 +161,14 @@ function getTypingDuration(text: string) {
   return Math.max(text.length, 1) * TYPE_INTERVAL_MS + LINE_SETTLE_MS;
 }
 
-function restoreDocumentViewportPosition(behavior: ScrollBehavior = "auto") {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.scrollTo({ top: 0, left: 0, behavior });
-  document.documentElement.scrollTo?.({ top: 0, left: 0, behavior });
-  document.body.scrollTo?.({ top: 0, left: 0, behavior });
+function formatStatusBarTime(date: Date) {
+  const hh = date.getHours().toString().padStart(2, "0");
+  const mm = date.getMinutes().toString().padStart(2, "0");
+  const offsetHours = -date.getTimezoneOffset() / 60;
+  const sign = offsetHours >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetHours);
+  const offsetLabel = Number.isInteger(abs) ? `${abs}` : abs.toFixed(1).replace(/\.0$/, "");
+  return `${hh}:${mm} UTC${sign}${offsetLabel}`;
 }
 
 function TypingText({ text, isTyping }: { text: string; isTyping?: boolean }) {
@@ -210,6 +208,7 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
   const [isFirstInteraction, setIsFirstInteraction] = useState(true);
   const [activeAssistantEntryId, setActiveAssistantEntryId] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -219,11 +218,9 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
   const lineSequenceRef = useRef(0);
   const touchStartYRef = useRef<number | null>(null);
   const touchBlurredRef = useRef(false);
-  const viewportResetTimersRef = useRef<number[]>([]);
-  const initialViewportTimersRef = useRef<number[]>([]);
   const isFocusedRef = useRef(false);
   const isMobileViewportRef = useRef(false);
-  const settledViewportHeightRef = useRef(0);
+  const updateKeyboardInsetRef = useRef<() => void>(() => {});
   const sessionId = useMemo(() => crypto.randomUUID(), []);
 
   useEffect(() => {
@@ -255,21 +252,11 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
     isFocusedRef.current = isFocused;
   }, [isFocused]);
 
-  const clearViewportResetTimers = () => {
-    for (const timerId of viewportResetTimersRef.current) {
-      window.clearTimeout(timerId);
-    }
-
-    viewportResetTimersRef.current = [];
-  };
-
-  const clearInitialViewportTimers = () => {
-    for (const timerId of initialViewportTimersRef.current) {
-      window.clearTimeout(timerId);
-    }
-
-    initialViewportTimersRef.current = [];
-  };
+  useEffect(() => {
+    setCurrentTime(new Date());
+    const id = window.setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const scrollOutputToLatest = (behavior: ScrollBehavior = "auto") => {
     const viewport = scrollRef.current;
@@ -283,84 +270,48 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
     });
   };
 
-  const syncAppHeight = (height: number) => {
-    document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
-  };
-
-  const readVisibleViewportHeight = () =>
-    window.visualViewport?.height ??
-    window.innerHeight ??
-    document.documentElement.clientHeight;
-
-  const captureSettledViewportHeight = () => {
-    const height = Math.round(
-      Math.max(
-        window.visualViewport?.height ?? 0,
-        window.innerHeight,
-        document.documentElement.clientHeight
-      )
-    );
-    settledViewportHeightRef.current = Math.max(settledViewportHeightRef.current, height);
-    return settledViewportHeightRef.current;
-  };
-
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
-    const updateAppHeight = () => {
-      const visibleHeight = Math.round(readVisibleViewportHeight());
-
-      if (!isFocusedRef.current) {
-        captureSettledViewportHeight();
+    const updateKeyboardInset = () => {
+      if (!isMobileViewportRef.current || !isFocusedRef.current) {
+        setKeyboardInset(0);
+        return;
       }
 
-      const stableHeight =
-        settledViewportHeightRef.current > 0 ? settledViewportHeightRef.current : visibleHeight;
-      const viewportOffsetTop = Math.round(window.visualViewport?.offsetTop ?? 0);
-      const nextKeyboardInset = isFocusedRef.current
-        ? Math.max(0, stableHeight - visibleHeight - viewportOffsetTop)
-        : 0;
+      const visualViewport = window.visualViewport;
+      const layoutHeight =
+        window.innerHeight || document.documentElement.clientHeight;
+      const visibleHeight = visualViewport?.height ?? layoutHeight;
+      const viewportOffsetTop = visualViewport?.offsetTop ?? 0;
+      const nextKeyboardInset = Math.max(
+        0,
+        Math.round(layoutHeight - visibleHeight - viewportOffsetTop)
+      );
 
-      syncAppHeight(stableHeight);
       setKeyboardInset(nextKeyboardInset);
+      scrollOutputToLatest("auto");
     };
+    updateKeyboardInsetRef.current = updateKeyboardInset;
 
     let frameId = 0;
     const syncViewport = () => {
       cancelAnimationFrame(frameId);
       frameId = window.requestAnimationFrame(() => {
-        updateAppHeight();
-
-        if (isMobileViewportRef.current || document.activeElement !== inputRef.current) {
-          restoreDocumentViewportPosition("auto");
-        }
+        updateKeyboardInset();
       });
     };
 
-    updateAppHeight();
-    clearInitialViewportTimers();
-    initialViewportTimersRef.current = INITIAL_VIEWPORT_SNAPSHOT_DELAYS_MS.map((delay) =>
-      window.setTimeout(() => {
-        if (isFocusedRef.current) {
-          return;
-        }
-
-        syncAppHeight(captureSettledViewportHeight());
-        restoreDocumentViewportPosition("auto");
-      }, delay)
-    );
+    updateKeyboardInset();
 
     window.visualViewport?.addEventListener("resize", syncViewport);
-    window.visualViewport?.addEventListener("scroll", syncViewport);
     window.addEventListener("orientationchange", syncViewport);
 
     return () => {
       cancelAnimationFrame(frameId);
-      clearInitialViewportTimers();
       window.visualViewport?.removeEventListener("resize", syncViewport);
-      window.visualViewport?.removeEventListener("scroll", syncViewport);
       window.removeEventListener("orientationchange", syncViewport);
     };
   }, []);
@@ -660,52 +611,20 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
   };
 
   const stabilizeFocusViewport = () => {
-    clearViewportResetTimers();
-    restoreDocumentViewportPosition("auto");
     scrollOutputToLatest("auto");
-
-    viewportResetTimersRef.current = KEYBOARD_RESET_DELAYS_MS.map((delay) =>
-      window.setTimeout(() => {
-        if (document.activeElement !== inputRef.current) {
-          return;
-        }
-
-        const currentHeight = readVisibleViewportHeight();
-        const stableHeight =
-          settledViewportHeightRef.current > 0
-            ? settledViewportHeightRef.current
-            : Math.round(currentHeight);
-        const viewportOffsetTop = Math.round(window.visualViewport?.offsetTop ?? 0);
-
-        syncAppHeight(stableHeight);
-        setKeyboardInset(
-          Math.max(0, stableHeight - Math.round(currentHeight) - viewportOffsetTop)
-        );
-        restoreDocumentViewportPosition("auto");
-        scrollOutputToLatest("auto");
-      }, delay)
-    );
+    window.requestAnimationFrame(() => {
+      updateKeyboardInsetRef.current();
+      scrollOutputToLatest("auto");
+    });
   };
 
   const handleInputBlur = () => {
     setIsFocused(false);
     setKeyboardInset(0);
-    clearViewportResetTimers();
-
-    viewportResetTimersRef.current = KEYBOARD_RESET_DELAYS_MS.map((delay) =>
-      window.setTimeout(() => {
-        restoreDocumentViewportPosition("auto");
-
-        const fallbackHeight = Math.max(
-          captureSettledViewportHeight(),
-          Math.round(readVisibleViewportHeight())
-        );
-
-        syncAppHeight(fallbackHeight);
-        setKeyboardInset(0);
-        scrollOutputToLatest("auto");
-      }, delay)
-    );
+    window.requestAnimationFrame(() => {
+      setKeyboardInset(0);
+      scrollOutputToLatest("auto");
+    });
   };
 
   const entriesMarkup = (
@@ -806,23 +725,110 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
     </form>
   );
 
+  const mobileComposerMarkup = (
+    <form
+      onSubmit={handleSubmit}
+      className="relative z-10 flex shrink-0 flex-col border-t border-phosphor-500/10 bg-[#020d07]/96 backdrop-blur-md"
+    >
+      <div
+        aria-hidden={!!input}
+        className={`overflow-hidden text-[13px] transition-[max-height,opacity,padding] duration-200 ease-out ${
+          input ? "max-h-0 pb-0 pt-0 opacity-0" : "max-h-10 pb-1 pt-2.5 opacity-100"
+        }`}
+      >
+        <div className="mx-auto flex w-max max-w-full items-center overflow-x-auto px-4">
+          {["/about", "/contact", "/help", "/clear"].map((cmd, index) => (
+            <Fragment key={cmd}>
+              {index > 0 ? (
+                <span aria-hidden="true" className="px-2.5 text-phosphor-500/30">
+                  ·
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  interruptActiveRequest();
+                  executeCommand(cmd);
+                }}
+                className="whitespace-nowrap font-mono tracking-tight text-phosphor-300 underline-offset-[5px] decoration-phosphor-500/0 transition-colors duration-150 active:text-phosphor-50 active:underline active:decoration-phosphor-500"
+              >
+                {cmd}
+              </button>
+            </Fragment>
+          ))}
+        </div>
+      </div>
+
+      <label className="flex shrink-0 cursor-text items-center gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+        <span className="font-mono text-[15px] leading-6 text-phosphor-300">$</span>
+        <div className="relative flex-1">
+          <div className="pointer-events-none flex min-h-6 items-center overflow-hidden text-[15px] leading-6 text-phosphor-50">
+            {input ? <span className="whitespace-pre-wrap break-all">{input}</span> : null}
+            <span
+              aria-hidden="true"
+              className={`terminal-block-cursor ${input ? "ml-[0.18em]" : "mr-[0.5em]"} ${
+                isFocused ? "opacity-100" : "opacity-70"
+              }`}
+            >
+              █
+            </span>
+            {!input ? (
+              <span className="opacity-30">Type /help for commands...</span>
+            ) : null}
+          </div>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleHistoryKey}
+            onFocus={() => {
+              setIsFocused(true);
+              stabilizeFocusViewport();
+            }}
+            onBlur={handleInputBlur}
+            spellCheck={false}
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect="off"
+            aria-label="Terminal input"
+            className="terminal-hidden-input absolute inset-0 w-full border-none bg-transparent text-base outline-none"
+          />
+        </div>
+      </label>
+    </form>
+  );
+
   if (isMobileViewport) {
     return (
-      <section className="fixed inset-0 z-20 grid h-[var(--app-height)] min-h-0 w-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-none border-none bg-gradient-to-b from-[#02110a] to-[#010a05] pt-0">
-        <div className="mobile-scanlines absolute inset-0 z-0 opacity-50" aria-hidden="true" />
+      <section className="fixed inset-0 z-20 grid h-[100dvh] min-h-0 w-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-none border-none bg-gradient-to-b from-[#02110a] to-[#010a05] pt-0 shadow-[inset_0_0_0_1px_rgba(71,230,91,0.12),inset_0_0_48px_rgba(71,230,91,0.05)]">
+        <div className="crt pointer-events-none absolute inset-0 z-0 opacity-70" aria-hidden="true" />
         <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-24 bg-gradient-to-b from-phosphor-500/10 to-transparent" />
         <div className="scan-pass pointer-events-none absolute inset-x-0 top-[-30%] z-0 h-24 bg-gradient-to-b from-transparent via-phosphor-100/10 to-transparent blur-2xl" />
 
-        <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-phosphor-900/30 bg-[#031109]/96 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-md">
-          <span className="type-prompt text-xs font-bold tracking-widest text-phosphor-500/80">
-            SYS.OP // ONLINE
+        <header
+          aria-hidden={isFocused}
+          className={`relative z-10 flex shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-phosphor-500/10 bg-phosphor-900/25 px-4 font-mono text-[11px] tracking-wide text-phosphor-500/70 backdrop-blur-md transition-[max-height,opacity,padding,border-width] duration-200 ease-out ${
+            isFocused
+              ? "max-h-0 border-b-0 py-0 opacity-0"
+              : "max-h-12 pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] opacity-100"
+          }`}
+        >
+          <span className="truncate">jordon@term:~</span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full bg-phosphor-500 shadow-[0_0_6px_rgba(71,230,91,0.9)] animate-pulse"
+            />
+            LIVE
           </span>
-          <span className="h-2 w-2 rounded-full bg-phosphor-500 shadow-[0_0_8px_rgba(71,230,91,0.8)] animate-pulse" />
+          <span className="shrink-0 tabular-nums">
+            {currentTime ? formatStatusBarTime(currentTime) : "--:-- UTC"}
+          </span>
         </header>
 
         <div
           ref={scrollRef}
-          className="terminal-scroll-region terminal-scrollbar relative z-10 min-h-0 overflow-y-auto px-4 py-4"
+          className="terminal-scroll-region terminal-scrollbar relative z-10 min-h-0 overflow-y-auto"
           onTouchStart={handleViewportTouchStart}
           onTouchMove={handleViewportTouchMove}
           onTouchEnd={resetViewportTouchTracking}
@@ -831,10 +837,12 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
           aria-atomic="false"
           style={{ paddingBottom: `${16 + keyboardInset}px` }}
         >
-          {entriesMarkup}
+          <div className="ml-4 border-l border-phosphor-500/15 py-4 pl-3 pr-4">
+            {entriesMarkup}
+          </div>
         </div>
 
-        <div style={{ transform: `translateY(-${keyboardInset}px)` }}>{composerMarkup}</div>
+        <div style={{ transform: `translateY(-${keyboardInset}px)` }}>{mobileComposerMarkup}</div>
       </section>
     );
   }

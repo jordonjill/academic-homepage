@@ -6,7 +6,6 @@
 
 :root {
   color-scheme: dark;
-  --app-height: 100dvh;
   --screen-bg: #031109;
   --screen-panel: rgba(2, 17, 10, 0.9);
   --screen-border: rgba(141, 244, 141, 0.18);
@@ -100,17 +99,6 @@ body {
     radial-gradient(circle at 30% 70%, rgba(255, 255, 255, 0.03), transparent 16%);
   mix-blend-mode: screen;
   opacity: 0.08;
-}
-
-.mobile-scanlines {
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.15) 2px,
-    rgba(0, 0, 0, 0.15) 4px
-  );
-  pointer-events: none;
 }
 
 .terminal-scrollbar::-webkit-scrollbar {

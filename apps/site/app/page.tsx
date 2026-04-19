@@ -7,7 +7,7 @@ export default function HomePage() {
   const siteSnapshot = loadSiteSnapshot();
 
   return (
-    <main className="relative h-[var(--app-height)] w-full overflow-hidden bg-[#031109] text-phosphor-100">
+    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#031109] text-phosphor-100">
       <MatrixBackground />
       <div className="crt absolute inset-0 opacity-80" aria-hidden="true" />
       <div className="grid-pattern absolute inset-0" aria-hidden="true" />
