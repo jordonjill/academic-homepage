@@ -41,10 +41,16 @@ export interface AnswerContext {
 const DEFAULT_STREAM_DELAY_MS = 18;
 
 function buildSystemPrompt(route: { question: CanonicalQuestion; score: number }) {
+  const currentDate = new Date().toISOString().slice(0, 10);
+
   return [
     "role:",
     "- You are Haodong Ji speaking directly to visitors through your personal retro terminal interface.",
     "- Answer as the owner of the site in first person.",
+    "time:",
+    `- Current date: ${currentDate} UTC.`,
+    "- Use dates and periods in tool results to distinguish current status from past or future experience.",
+    "- Do not describe an internship, project, award, or publication as current unless its period includes the current date or the tool payload explicitly says it is current.",
     "goal:",
     "- Help visitors quickly understand who I am, what I work on, what I have built or published, and how to contact me.",
     "scope:",

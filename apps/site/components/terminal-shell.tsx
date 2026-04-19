@@ -222,6 +222,7 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
   const viewportResetTimersRef = useRef<number[]>([]);
   const initialViewportTimersRef = useRef<number[]>([]);
   const isFocusedRef = useRef(false);
+  const isMobileViewportRef = useRef(false);
   const settledViewportHeightRef = useRef(0);
   const sessionId = useMemo(() => crypto.randomUUID(), []);
 
@@ -237,7 +238,10 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
     }
 
     const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const updateViewportMode = () => setIsMobileViewport(mediaQuery.matches);
+    const updateViewportMode = () => {
+      isMobileViewportRef.current = mediaQuery.matches;
+      setIsMobileViewport(mediaQuery.matches);
+    };
 
     updateViewportMode();
     mediaQuery.addEventListener("change", updateViewportMode);
@@ -329,7 +333,7 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
       frameId = window.requestAnimationFrame(() => {
         updateAppHeight();
 
-        if (document.activeElement !== inputRef.current) {
+        if (isMobileViewportRef.current || document.activeElement !== inputRef.current) {
           restoreDocumentViewportPosition("auto");
         }
       });
@@ -349,12 +353,14 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
     );
 
     window.visualViewport?.addEventListener("resize", syncViewport);
+    window.visualViewport?.addEventListener("scroll", syncViewport);
     window.addEventListener("orientationchange", syncViewport);
 
     return () => {
       cancelAnimationFrame(frameId);
       clearInitialViewportTimers();
       window.visualViewport?.removeEventListener("resize", syncViewport);
+      window.visualViewport?.removeEventListener("scroll", syncViewport);
       window.removeEventListener("orientationchange", syncViewport);
     };
   }, []);
@@ -655,6 +661,8 @@ export function TerminalShell({ snapshot }: { snapshot: SiteSnapshot }) {
 
   const stabilizeFocusViewport = () => {
     clearViewportResetTimers();
+    restoreDocumentViewportPosition("auto");
+    scrollOutputToLatest("auto");
 
     viewportResetTimersRef.current = KEYBOARD_RESET_DELAYS_MS.map((delay) =>
       window.setTimeout(() => {

@@ -2,7 +2,7 @@ import type { CanonicalQuestion } from "@academic-homepage/shared";
 
 import type { Env } from "./env.ts";
 
-export const SEMANTIC_THRESHOLD = 0.6;
+export const SEMANTIC_THRESHOLD = 0.7;
 
 export interface ResolvedRoute {
   question: CanonicalQuestion;
