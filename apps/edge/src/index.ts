@@ -14,7 +14,8 @@ import {
   hashIp,
   isEnglishFirstInput,
   isLoopbackIp,
-  logRequest
+  logRequest,
+  pruneDatabase
 } from "./security.ts";
 import { buildCorsHeaders, buildSseHeaders, createSseStream } from "./sse.ts";
 
@@ -332,6 +333,12 @@ export default {
         status: 404,
         headers: buildCorsHeaders(request, env)
       }
+    );
+  },
+  async scheduled(_event: unknown, env: Env, _ctx: unknown) {
+    const cutoffs = await pruneDatabase(env);
+    console.log(
+      `[cron:prune] request_log<${cutoffs.requestLogCutoff} daily_usage<${cutoffs.dailyUsageCutoff} ip_reputation<${cutoffs.ipReputationCutoff}`
     );
   }
 };

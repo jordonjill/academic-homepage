@@ -24,3 +24,6 @@ index_name = "academic-homepage-questions"
 binding = "DB"
 database_name = "academic-homepage"
 database_id = "07f1c149-3e52-4927-81aa-e595d7c1bce9"
+
+[triggers]
+crons = ["17 3 * * *"]

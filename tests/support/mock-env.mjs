@@ -56,6 +56,34 @@ class MockD1Statement {
   }
 
   async run() {
+    if (this.query.includes("DELETE FROM request_log")) {
+      const [cutoff] = this.values;
+      this.state.requestLog = this.state.requestLog.filter(
+        (row) => row.createdAt >= String(cutoff)
+      );
+      return {};
+    }
+
+    if (this.query.includes("DELETE FROM daily_usage")) {
+      const [cutoff] = this.values;
+      for (const [key, row] of this.state.dailyUsage.entries()) {
+        if (row.dayUtc < String(cutoff)) {
+          this.state.dailyUsage.delete(key);
+        }
+      }
+      return {};
+    }
+
+    if (this.query.includes("DELETE FROM ip_reputation")) {
+      const [cutoff] = this.values;
+      for (const [key, row] of this.state.reputation.entries()) {
+        if (!row.bannedAt && row.updatedAt < String(cutoff)) {
+          this.state.reputation.delete(key);
+        }
+      }
+      return {};
+    }
+
     if (this.query.includes("INSERT INTO daily_usage")) {
       const [ipHash, dayUtc, nowIso] = this.values;
       const key = keyFor(ipHash, dayUtc);
@@ -66,6 +94,7 @@ class MockD1Statement {
 
       this.state.dailyUsage.set(key, {
         askCount: current.askCount + 1,
+        dayUtc: String(dayUtc),
         lastSeenAt: String(nowIso)
       });
       return {};
@@ -169,6 +198,7 @@ export function createMockEnv(overrides = {}) {
 export function seedAskCount(state, ipHash, dayUtc, askCount) {
   state.dailyUsage.set(keyFor(ipHash, dayUtc), {
     askCount,
+    dayUtc,
     lastSeenAt: `${dayUtc}T00:00:00.000Z`
   });
 }

@@ -1,5 +1,10 @@
 import type { Env } from "./env.ts";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const REQUEST_LOG_RETENTION_DAYS = 90;
+const DAILY_USAGE_RETENTION_DAYS = 1;
+const IP_REPUTATION_IDLE_DAYS = 180;
+
 const ABUSE_RULES: Array<{ pattern: RegExp; reason: string }> = [
   {
     pattern: /\b(ignore|reveal|print|dump)\b.{0,40}\b(system|developer)\b.{0,40}\b(prompt|instruction)s?\b/i,
@@ -177,4 +182,36 @@ export async function logRequest(
       payload.abuseReason ?? null
     )
     .run();
+}
+
+export async function pruneDatabase(env: Env, nowMs: number = Date.now()) {
+  const requestLogCutoff = new Date(
+    nowMs - REQUEST_LOG_RETENTION_DAYS * MS_PER_DAY
+  ).toISOString();
+  const dailyUsageCutoff = new Date(nowMs - DAILY_USAGE_RETENTION_DAYS * MS_PER_DAY)
+    .toISOString()
+    .slice(0, 10);
+  const ipReputationCutoff = new Date(
+    nowMs - IP_REPUTATION_IDLE_DAYS * MS_PER_DAY
+  ).toISOString();
+
+  await env.DB.prepare(`DELETE FROM request_log WHERE created_at < ?`)
+    .bind(requestLogCutoff)
+    .run();
+
+  await env.DB.prepare(`DELETE FROM daily_usage WHERE day_utc < ?`)
+    .bind(dailyUsageCutoff)
+    .run();
+
+  await env.DB.prepare(
+    `DELETE FROM ip_reputation WHERE banned_at IS NULL AND updated_at < ?`
+  )
+    .bind(ipReputationCutoff)
+    .run();
+
+  return {
+    requestLogCutoff,
+    dailyUsageCutoff,
+    ipReputationCutoff
+  };
 }

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import worker from "../apps/edge/src/index.ts";
-import { getUtcDay, hashIp } from "../apps/edge/src/security.ts";
+import { getUtcDay, hashIp, pruneDatabase } from "../apps/edge/src/security.ts";
 
 import {
   createMockEnv,
@@ -251,4 +251,54 @@ test("missing PROFILE_KV does not silently fall back", async () => {
   );
 
   assert.equal(findEvent(events, "error")?.data.code, "llm_error");
+});
+
+test("database pruning removes stale logs and usage while preserving bans", async () => {
+  const { env, state } = createMockEnv();
+  const nowMs = Date.parse("2026-04-19T03:17:00.000Z");
+
+  state.requestLog.push(
+    {
+      id: "old-log",
+      ipHash: "ip-a",
+      createdAt: "2025-12-01T00:00:00.000Z",
+      outcome: "ok",
+      semanticScore: null,
+      matchedIntent: null,
+      abuseReason: null
+    },
+    {
+      id: "fresh-log",
+      ipHash: "ip-a",
+      createdAt: "2026-04-01T00:00:00.000Z",
+      outcome: "ok",
+      semanticScore: null,
+      matchedIntent: null,
+      abuseReason: null
+    }
+  );
+
+  seedAskCount(state, "ip-a", "2026-04-17", 2);
+  seedAskCount(state, "ip-a", "2026-04-19", 1);
+  state.reputation.set("stale-clean", {
+    abuseStrikes: 1,
+    bannedAt: null,
+    banReason: null,
+    updatedAt: "2025-01-01T00:00:00.000Z"
+  });
+  state.reputation.set("banned", {
+    abuseStrikes: 3,
+    bannedAt: "2025-01-01T00:00:00.000Z",
+    banReason: "abuse",
+    updatedAt: "2025-01-01T00:00:00.000Z"
+  });
+
+  const cutoffs = await pruneDatabase(env, nowMs);
+
+  assert.equal(cutoffs.dailyUsageCutoff, "2026-04-18");
+  assert.deepEqual(state.requestLog.map((row) => row.id), ["fresh-log"]);
+  assert.equal(getAskCount(state, "ip-a", "2026-04-17"), 0);
+  assert.equal(getAskCount(state, "ip-a", "2026-04-19"), 1);
+  assert.equal(state.reputation.has("stale-clean"), false);
+  assert.equal(state.reputation.has("banned"), true);
 });
